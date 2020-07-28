@@ -40,9 +40,10 @@ function uadctrl:init()
     log.i('initializing UADCtrl')
     uadctrl.socket = hs.socket.new():connect('127.0.0.1', 4710)
     uadctrl.state = {
-        mixToMono = 0,
+        mono = 0,
         mute = { 0, 0 },
-        solo = { 0, 0 }
+        solo = { 0, 0 },
+        panned = 0,
     }
 end
 
@@ -51,16 +52,17 @@ end
 -----------------------------------------------
 
 local function mixToMono()
-    uadctrl.state.mixToMono = 1 - uadctrl.state.mixToMono
-    uadctrl:set(0, 'outputs', 0, 'MixToMono', uadctrl.state.mixToMono)
-    uadctrl:set(0, 'outputs', 4, 'MixToMono', uadctrl.state.mixToMono)
-    log.i(string.format('mixToMono = %s', tostring(uadctrl.state.mixToMono)))
+    uadctrl.state.mono = 1 - uadctrl.state.mono
+    uadctrl:set(0, 'outputs', 0, 'MixToMono', uadctrl.state.mono)
+    uadctrl:set(0, 'outputs', 4, 'MixToMono', uadctrl.state.mono)
+    log.i(string.format('mono = %s', tostring(uadctrl.state.mono)))
 end
 
 local function muteChannel(chan)
     return function()
         uadctrl.state.mute[chan] = 1 - uadctrl.state.mute[chan]
         uadctrl:set(0, 'inputs', chan-1, 'Mute', uadctrl.state.mute[chan])
+        uadctrl.muteMode:exit()
         log.i(string.format('mute[%d] = %s', chan, tostring(uadctrl.state.mute[chan])))
     end
 end
@@ -69,23 +71,23 @@ local function soloChannel(chan)
     return function()
         uadctrl.state.solo[chan] = 1 - uadctrl.state.solo[chan]
         uadctrl:set(0, 'inputs', chan-1, 'Solo', uadctrl.state.solo[chan])
+        uadctrl.soloMode:exit()
         log.i(string.format('solo[%d] = %s', chan, tostring(uadctrl.state.solo[chan])))
     end
 end
 
-local function panChannelsLR(chan1, chan2)
+local function panChannels(chan1, chan2)
     return function()
-        uadctrl:set(0, 'inputs', chan1-1, 'Pan', -1.0)
-        uadctrl:set(0, 'inputs', chan2-1, 'Pan', 1.0)
-        log.i(string.format('chans %d,%d panned LR', chan1, chan2))
-    end
-end
-
-local function panChannelsCenter(chan1, chan2)
-    return function()
-        uadctrl:set(0, 'inputs', chan1-1, 'Pan', 0)
-        uadctrl:set(0, 'inputs', chan2-1, 'Pan', 0)
-        log.i(string.format('chans %d,%d panned center', chan1, chan2))
+        uadctrl.state.panned = 1 - uadctrl.state.panned
+        if uadctrl.state.panned == 1 then -- pan LR
+            uadctrl:set(0, 'inputs', chan1-1, 'Pan', -1.0)
+            uadctrl:set(0, 'inputs', chan2-1, 'Pan', 1.0)
+            log.i(string.format('chans %d,%d panned LR', chan1, chan2))
+        else -- pan center
+            uadctrl:set(0, 'inputs', chan1-1, 'Pan', 0)
+            uadctrl:set(0, 'inputs', chan2-1, 'Pan', 0)
+            log.i(string.format('chans %d,%d panned center', chan1, chan2))
+        end
     end
 end
 
@@ -97,12 +99,52 @@ end
 -- mapping example: 
 -- local hyper = {'ctrl', 'alt', 'cmd'}
 -- spoon.UADCtrl:bindHotkeys({
---     activate = {hyper, 'i'}
+--     enter  = { hyper,  'u' },
+--     mute   = { {},     'm' },
+--     solo   = { {},     's' },
+--     mono   = { {},     'o' },
+--     pan    = { {},     'p' }
 -- })
 -----------------------------------------------
 
-function uadctrl:bindHotkeys(mapping)
-    hs.hotkey.bind(mapping.activate[1], mapping.activate[2], mixToMono)
+function uadctrl:bindHotkeys(m)
+    uadctrl.mainMode = hs.hotkey.modal.new(m.enter[1], m.enter[2])
+    uadctrl.muteMode = hs.hotkey.modal.new(nil, nil)
+    uadctrl.soloMode = hs.hotkey.modal.new(nil, nil)
+
+    -- downmix to mono
+    uadctrl.mainMode:bind(m.mono[1], m.mono[2], mixToMono)
+
+    -- pan channels 1 and 2 LR or center
+    uadctrl.mainMode:bind(m.pan[1], m.pan[2], panChannels(1,2))
+
+    -- mute mode
+    for i = 1, 2 do
+        uadctrl.muteMode:bind({}, string.format('%d',i), muteChannel(i))
+    end
+
+    -- solo mode
+    for i = 1, 2 do
+        uadctrl.soloMode:bind({}, string.format('%d',i), soloChannel(i))
+    end
+
+    -- mode entry keybinds
+    uadctrl.mainMode:bind({}, 'm', function()
+        uadctrl.muteMode:enter()
+        log.d('entering mute mode')
+    end)
+
+    uadctrl.mainMode:bind({}, 's', function()
+        uadctrl.soloMode:enter()
+        log.d('entering solo mode')
+    end)
+
+    uadctrl.mainMode:bind({}, 'escape', function()
+        uadctrl.muteMode:exit()
+        uadctrl.soloMode:exit()
+        uadctrl.mainMode:exit()
+        log.d('exiting all modes')
+    end)
 end
 
 return uadctrl
