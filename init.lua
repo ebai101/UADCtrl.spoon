@@ -142,12 +142,12 @@ function uadctrl:bindHotkeys(m)
     end
 
     -- mode entry keybinds
-    uadctrl.mainMode:bind({}, 'm', function()
+    uadctrl.mainMode:bind(m.mute[1], m.mute[2], function()
         uadctrl.muteMode:enter()
         log.d('entering mute mode')
     end)
 
-    uadctrl.mainMode:bind({}, 's', function()
+    uadctrl.mainMode:bind(m.solo[1], m.solo[2], function()
         uadctrl.soloMode:enter()
         log.d('entering solo mode')
     end)
