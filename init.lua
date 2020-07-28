@@ -29,8 +29,12 @@ uadctrl.license = "MIT - https://opensource.org/licenses/MIT"
 -- utility functions
 -----------------------------------------------
 
+function uadctrl:showAlerts(a)
+    uadctrl._alerts = a
+end
+
 function uadctrl:info(msg)
-    if uadctrl.showAlerts then
+    if uadctrl._alerts then
         hs.alert.closeAll()
         hs.alert.show(msg)
     end
@@ -40,15 +44,15 @@ end
 function uadctrl:set(dev, cat, num, param, value)
     local cmdString = string.format('set /devices/%d/%s/%d/%s/value/ %s\0', dev, cat, num, param, value)
     log.d(cmdString)
-    uadctrl.socket:write(cmdString)
+    uadctrl._socket:write(cmdString)
 end
 
 function uadctrl:init()
     print('dothisiscalled')
     log.i('initializing UADCtrl')
-    uadctrl.socket = hs.socket.new():connect('127.0.0.1', 4710)
-    uadctrl.showAlerts = true
-    uadctrl.state = {
+    uadctrl._socket = hs.socket.new():connect('127.0.0.1', 4710)
+    uadctrl._alerts = true
+    uadctrl._state = {
         mono = 0,
         mute = { 0, 0 },
         solo = { 0, 0 },
@@ -61,18 +65,18 @@ end
 -----------------------------------------------
 
 local function mixToMono()
-    uadctrl.state.mono = 1 - uadctrl.state.mono
-    uadctrl:set(0, 'outputs', 0, 'MixToMono', uadctrl.state.mono)
-    uadctrl:set(0, 'outputs', 4, 'MixToMono', uadctrl.state.mono)
-    uadctrl:info(string.format('mono = %s', tostring(uadctrl.state.mono)))
+    uadctrl._state.mono = 1 - uadctrl._state.mono
+    uadctrl:set(0, 'outputs', 0, 'MixToMono', uadctrl._state.mono)
+    uadctrl:set(0, 'outputs', 4, 'MixToMono', uadctrl._state.mono)
+    uadctrl:info(string.format('mono = %s', tostring(uadctrl._state.mono)))
     uadctrl.mainMode:exit()
 end
 
 local function muteChannel(chan)
     return function()
-        uadctrl.state.mute[chan] = 1 - uadctrl.state.mute[chan]
-        uadctrl:set(0, 'inputs', chan-1, 'Mute', uadctrl.state.mute[chan])
-        uadctrl:info(string.format('mute[%d] = %s', chan, tostring(uadctrl.state.mute[chan])))
+        uadctrl._state.mute[chan] = 1 - uadctrl._state.mute[chan]
+        uadctrl:set(0, 'inputs', chan-1, 'Mute', uadctrl._state.mute[chan])
+        uadctrl:info(string.format('mute[%d] = %s', chan, tostring(uadctrl._state.mute[chan])))
         uadctrl.muteMode:exit()
         uadctrl.mainMode:exit()
     end
@@ -80,9 +84,9 @@ end
 
 local function soloChannel(chan)
     return function()
-        uadctrl.state.solo[chan] = 1 - uadctrl.state.solo[chan]
-        uadctrl:set(0, 'inputs', chan-1, 'Solo', uadctrl.state.solo[chan])
-        uadctrl:info(string.format('solo[%d] = %s', chan, tostring(uadctrl.state.solo[chan])))
+        uadctrl._state.solo[chan] = 1 - uadctrl._state.solo[chan]
+        uadctrl:set(0, 'inputs', chan-1, 'Solo', uadctrl._state.solo[chan])
+        uadctrl:info(string.format('solo[%d] = %s', chan, tostring(uadctrl._state.solo[chan])))
         uadctrl.soloMode:exit()
         uadctrl.mainMode:exit()
     end
@@ -90,8 +94,8 @@ end
 
 local function panChannels(chan1, chan2)
     return function()
-        uadctrl.state.panned = 1 - uadctrl.state.panned
-        if uadctrl.state.panned == 1 then -- pan LR
+        uadctrl._state.panned = 1 - uadctrl._state.panned
+        if uadctrl._state.panned == 1 then -- pan LR
             uadctrl:set(0, 'inputs', chan1-1, 'Pan', -1.0)
             uadctrl:set(0, 'inputs', chan2-1, 'Pan', 1.0)
             uadctrl:info(string.format('chans %d,%d panned LR', chan1, chan2))
