@@ -22,12 +22,15 @@ class Sniffer(Thread):
                 except:
                     pass
                 else:
-                    if not filter or not (
-                        "ClockLocked" in data
-                        or "MeterPulse" in data
-                        or "/ping" in data
-                        or "/UndoRedo" in data
-                        or "/UndoRecording" in data
+                    filter_strings = [
+                        "ClockLocked",
+                        "MeterPulse",
+                        "/ping",
+                        "/UndoRedo",
+                        "/UndoRecording",
+                    ]
+                    if not filter or not any(
+                        filter in data for filter in filter_strings
                     ):
                         try:
                             data_json = json.loads(data)
