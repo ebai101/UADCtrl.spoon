@@ -6,6 +6,7 @@ from pprint import pprint
 import socket
 import time
 import json
+import readline
 
 
 class Sniffer(Thread):
