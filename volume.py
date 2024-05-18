@@ -3,7 +3,6 @@
 import socket
 import json
 import sys
-import pprint
 
 quant_factor = 54
 
