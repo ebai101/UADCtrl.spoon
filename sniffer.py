@@ -15,33 +15,32 @@ class Sniffer(Thread):
         self.filter = filter
 
     def uad_prn(self, pkt):
-        if pkt.haslayer(Raw) and pkt.haslayer(TCP):
-            if pkt[TCP].sport == 4710 or pkt[TCP].dport == 4710:
-                try:
-                    data = pkt[Raw].load.decode().replace("\u0000", "")
-                except:
-                    pass
-                else:
-                    filter_strings = [
-                        "ClockLocked",
-                        "MeterPulse",
-                        "/ping",
-                        "/UndoRedo",
-                        "/UndoRecording",
-                    ]
-                    if not filter or not any(
-                        filter in data for filter in filter_strings
-                    ):
-                        try:
-                            data_json = json.loads(data)
-                            print(
-                                f'{time.asctime(time.localtime(pkt.time))} {"SEND" if pkt[TCP].dport == 4710 else "RECV"}'
-                            )
-                            pprint(data_json)
-                        except:
-                            print(
-                                f'{time.asctime(time.localtime(pkt.time))} {"SEND" if pkt[TCP].dport == 4710 else "RECV"} {data}'
-                            )
+        if (pkt.haslayer(Raw) and pkt.haslayer(TCP)) and (
+            pkt[TCP].sport == 4710 or pkt[TCP].dport == 4710
+        ):
+            try:
+                data = pkt[Raw].load.decode().replace("\u0000", "")
+            except:
+                pass
+            else:
+                filter_strings = [
+                    "/ClockLocked",
+                    "/MeterPulse",
+                    "/ping",
+                    "/UndoRedo",
+                    "/UndoRecording",
+                ]
+                if not filter or not any(filter in data for filter in filter_strings):
+                    try:
+                        data_json = json.loads(data)
+                        print(
+                            f'{time.asctime(time.localtime(pkt.time))} {"SEND" if pkt[TCP].dport == 4710 else "RECV"}'
+                        )
+                        pprint(data_json)
+                    except:
+                        print(
+                            f'{time.asctime(time.localtime(pkt.time))} {"SEND" if pkt[TCP].dport == 4710 else "RECV"} {data}'
+                        )
 
     def run(self):
         sniff(iface="lo0", prn=self.uad_prn, stop_filter=self.should_stop_sniffer)
